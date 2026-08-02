@@ -176,9 +176,3 @@ Two things worth knowing before you build on it:
 
 Everything else in the dependency tree is MIT, BSD, or Apache. The full list is
 in NOTICE.
-
-## What happened to the voice commander?
-
-This app's predecessor, Shiva (Grok Voice Think Fast 2.0 agent orchestrator),
-is preserved in `archive/voice-commander/`, self-contained, with a note on how
-to run it.

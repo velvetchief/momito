@@ -31,6 +31,21 @@ if ! xcode-select -p >/dev/null 2>&1 || ! command -v cc >/dev/null 2>&1; then
 fi
 
 echo "==> Python environment"
+# The CLT-only python3 is 3.9, which cannot install the pinned deps; fail with
+# the actual requirement instead of a pip resolution error wall. The same check
+# runs against an existing .venv so a venv made with an old Python (before the
+# user upgraded) is rebuilt instead of silently reused.
+version_ok() { "$1" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; }
+if ! version_ok python3; then
+  echo "error: Momito needs Python 3.11 or later; 'python3' here is $(python3 -V 2>&1)." >&2
+  echo "       Install it from python.org or Homebrew (brew install python)," >&2
+  echo "       then run ./install.sh again." >&2
+  exit 1
+fi
+if [ -x "$VENV/bin/python" ] && ! version_ok "$VENV/bin/python"; then
+  echo "    existing .venv uses $("$VENV/bin/python" -V 2>&1); rebuilding it"
+  rm -rf "$VENV"
+fi
 if [ ! -x "$VENV/bin/python" ]; then
   python3 -m venv "$VENV"
 fi
