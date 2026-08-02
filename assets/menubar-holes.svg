@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="212 180 600 600">
+  <!-- Shapes cut out of the silhouette (drawn with destination-out).
+       Features are bolder than icon.svg so they survive 18pt rendering. -->
+  <g transform="translate(0,28)">
+    <rect x="356" y="366" width="138" height="62" rx="31" fill="#000" transform="rotate(-9 425 397)"/>
+    <rect x="530" y="366" width="138" height="62" rx="31" fill="#000" transform="rotate(9 599 397)"/>
+    <circle cx="428" cy="472" r="36" fill="#000"/>
+    <circle cx="596" cy="472" r="36" fill="#000"/>
+    <ellipse cx="512" cy="524" rx="56" ry="42" fill="#000"/>
+    <path d="M 512 570 C 500 618 468 652 432 670" stroke="#000" stroke-width="26" stroke-linecap="round" fill="none"/>
+    <path d="M 512 570 C 524 618 556 652 592 670" stroke="#000" stroke-width="26" stroke-linecap="round" fill="none"/>
+  </g>
+</svg>

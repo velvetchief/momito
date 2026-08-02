@@ -1,0 +1,13 @@
+# Runtime dependencies, pinned exactly. Momito holds Accessibility and
+# Microphone grants, so a surprise version of anything in here inherits the
+# ability to read every keystroke and hear every word. Bump deliberately.
+parakeet-mlx==0.5.2
+huggingface-hub==1.26.0
+numpy==2.4.6
+rumps==0.4.0
+sounddevice==0.5.5
+soundfile==0.14.0
+pynput==1.8.2
+pyobjc-framework-Cocoa==12.2.1
+pyobjc-framework-ApplicationServices==12.2.1
+pyobjc-framework-WebKit==12.2.1

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="212 180 600 600">
+  <!-- Menu bar template: solid schnauzer silhouette. Details are punched out
+       as alpha holes by menubar-holes.svg (see scripts/make_menubar_icon.py). -->
+  <g transform="translate(0,28)">
+    <polygon points="352,352 300,168 462,296" fill="#000"/>
+    <polygon points="672,352 724,168 562,296" fill="#000"/>
+    <rect x="330" y="292" width="364" height="348" rx="96" fill="#000"/>
+    <path d="M 366 486
+             C 340 560 336 630 356 682
+             L 396 716 L 428 690 L 458 726 L 492 696 L 512 736
+             L 532 696 L 566 726 L 596 690 L 628 716 L 668 682
+             C 688 630 684 560 658 486
+             C 616 458 560 446 512 446
+             C 464 446 408 458 366 486 Z"
+          fill="#000"/>
+  </g>
+</svg>

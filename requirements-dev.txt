@@ -1,0 +1,6 @@
+# Tests and type checking. Not installed by install.sh: nothing here should end
+# up inside an app that has Accessibility permission.
+-r requirements.txt
+pytest==9.1.1
+mypy==2.3.0
+types-pynput==1.8.1.20260712
