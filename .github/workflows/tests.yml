@@ -1,0 +1,32 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # Apple silicon. MLX and the pyobjc bridge do not exist anywhere else, and
+    # neither does Momito.
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      # The full pinned set, not a slim subset: a pin that stops resolving is
+      # exactly the kind of breakage this is here to catch.
+      - name: Install
+        run: pip install -r requirements-dev.txt
+
+      - name: Tests
+        run: pytest -q
+
+      - name: Types
+        run: mypy momito tests conftest.py run.py

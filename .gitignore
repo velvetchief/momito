@@ -1,0 +1,23 @@
+# Python
+# .venv is the app's runtime env, .venv-dev is the test env (kept separate so
+# pytest and mypy stay out of the env that holds Accessibility and Microphone)
+.venv*/
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+
+# Runtime output: app logs can name whatever app you were dictating into
+logs/
+*.log
+
+# Local tooling and editor state
+.claude/
+.DS_Store
+
+# Build products
+build/
+dist/
+*.dmg
+Momito.app/
+archive/

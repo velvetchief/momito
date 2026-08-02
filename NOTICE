@@ -1,0 +1,45 @@
+Momito
+Copyright 2026 Prithvi Datla (github.com/velvetchief)
+
+This product includes software developed by Prithvi Datla, licensed under
+the Apache License, Version 2.0. See LICENSE.
+
+--------------------------------------------------------------------------------
+Speech recognition model
+--------------------------------------------------------------------------------
+
+Momito downloads and runs NVIDIA's Parakeet TDT 0.6B v2, via the MLX conversion
+published at mlx-community/parakeet-tdt-0.6b-v2.
+
+  Model:   nvidia/parakeet-tdt-0.6b-v2
+  License: Creative Commons Attribution 4.0 International (CC-BY-4.0)
+           https://creativecommons.org/licenses/by/4.0/
+  Credit:  NVIDIA Corporation
+
+CC-BY-4.0 allows commercial use and requires attribution. If you redistribute
+Momito, or anything built on its output pipeline, keep this credit.
+
+The model weights are not part of this repository. They are fetched from
+Hugging Face on first launch, at a pinned revision (see momito/asr.py), and
+cached under ~/.cache/huggingface. Nothing is uploaded: transcription runs
+entirely on the local machine.
+
+--------------------------------------------------------------------------------
+Third-party Python dependencies
+--------------------------------------------------------------------------------
+
+  parakeet-mlx        Apache-2.0
+  huggingface-hub     Apache-2.0
+  mlx                 MIT
+  numpy               BSD-3-Clause
+  rumps               BSD-3-Clause
+  sounddevice         MIT
+  soundfile           BSD-3-Clause
+  pyobjc              MIT
+  pynput              LGPL-3.0
+
+pynput is the one copyleft dependency. Momito imports it as an unmodified
+library and installs it from PyPI, which LGPL-3.0 permits without extending its
+terms to Momito's own code. If you bundle a modified pynput into a binary
+distribution, LGPL-3.0 obligations apply to that copy: ship your changes and
+allow relinking.
