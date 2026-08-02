@@ -81,7 +81,7 @@ cat > "$STAGE/Contents/Info.plist" <<PLIST
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundleExecutable</key><string>Momito</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>CFBundleShortVersionString</key><string>1.0.1</string>
   <key>CFBundleIconFile</key><string>Momito</string>
   <key>LSUIElement</key><true/>
   <key>NSMicrophoneUsageDescription</key>

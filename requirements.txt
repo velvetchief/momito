@@ -6,7 +6,6 @@ huggingface-hub==1.26.0
 numpy==2.4.6
 rumps==0.4.0
 sounddevice==0.5.5
-soundfile==0.14.0
 pynput==1.8.2
 pyobjc-framework-Cocoa==12.2.1
 pyobjc-framework-ApplicationServices==12.2.1

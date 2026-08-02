@@ -1,12 +1,9 @@
 """Parakeet TDT v2 wrapper via parakeet-mlx. Fully local, nothing leaves the Mac."""
 
-import os
-import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
-import soundfile as sf
 
 MODEL_ID = "mlx-community/parakeet-tdt-0.6b-v2"
 # Pinned so an upstream repo edit cannot silently swap the weights that run on
@@ -53,13 +50,13 @@ class Transcriber:
         return self._transcribe_array(audio)
 
     def _transcribe_array(self, audio: np.ndarray) -> str:
-        # parakeet-mlx takes a file path; hand it a throwaway wav.
-        fd, path = tempfile.mkstemp(suffix=".wav")
-        os.close(fd)
-        try:
-            sf.write(path, audio, SAMPLE_RATE)
-            assert self._model is not None
-            result = self._model.transcribe(path)
-            return str(result.text)
-        finally:
-            os.unlink(path)
+        # parakeet-mlx's transcribe() takes a file path purely so it can shell
+        # out to ffmpeg for decoding, which most Macs do not have. We already
+        # hold decoded 16 kHz float32 audio, so feed it straight through the
+        # same two steps transcribe() runs after its decode.
+        import mlx.core as mx
+        from parakeet_mlx.audio import get_logmel
+
+        assert self._model is not None
+        mel = get_logmel(mx.array(audio.astype(np.float32)), self._model.preprocessor_config)
+        return str(self._model.generate(mel)[0].text)

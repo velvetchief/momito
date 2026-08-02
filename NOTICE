@@ -34,7 +34,6 @@ Third-party Python dependencies
   numpy               BSD-3-Clause
   rumps               BSD-3-Clause
   sounddevice         MIT
-  soundfile           BSD-3-Clause
   pyobjc              MIT
   pynput              LGPL-3.0
 
