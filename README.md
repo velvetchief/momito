@@ -27,8 +27,7 @@ in the wrong window.
 
 ## The dashboard
 
-Click the menu bar icon and choose **Open Momito**. A native window opens, like
-FluidVoice's, with three views:
+Click the menu bar icon and choose **Open Momito**. A native window opens, with three views:
 
 - **History**: everything you have dictated, searchable, with the app each one
   was typed into, when, word and character counts, and how long you spoke.
