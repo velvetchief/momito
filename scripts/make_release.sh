@@ -120,6 +120,10 @@ ditto "$PY_STDLIB" "$PY_LIB_DIR"
 # site-packages and build-config dirs would only duplicate or fight the
 # bundle's copies.
 rm -rf "$PY_LIB_DIR/site-packages" "$PY_LIB_DIR"/config-*
+# The stdlib's test suite is dead weight in a shipped app — nothing imports
+# it at runtime, and its deliberately-invalid fixture files stop the
+# byte-compilation pass below.
+rm -rf "$PY_LIB_DIR/test"
 find "$PY_LIB_DIR" -name __pycache__ -type d -prune -exec rm -rf {} +
 if [ ! -d "$DYNLOAD" ]; then
   echo "error: no lib-dynload in the copied stdlib ($PY_STDLIB); this Python" >&2
