@@ -120,6 +120,11 @@ ditto "$PY_STDLIB" "$PY_LIB_DIR"
 # site-packages and build-config dirs would only duplicate or fight the
 # bundle's copies.
 rm -rf "$PY_LIB_DIR/site-packages" "$PY_LIB_DIR"/config-*
+# The stdlib's test suites are dead weight in a shipped app — nothing imports
+# them at runtime, and their deliberately-invalid fixture files stop the
+# byte-compilation pass below. Includes nested suites (idlelib/idle_test,
+# unittest/test), not just the top-level test package.
+find "$PY_LIB_DIR" -type d \( -name test -o -name idle_test \) -prune -exec rm -rf {} +
 find "$PY_LIB_DIR" -name __pycache__ -type d -prune -exec rm -rf {} +
 if [ ! -d "$DYNLOAD" ]; then
   echo "error: no lib-dynload in the copied stdlib ($PY_STDLIB); this Python" >&2
@@ -146,19 +151,28 @@ echo "==> Rewriting dylib references into the bundle"
 # libraries stay put: every Mac has them. Loop until a pass copies nothing —
 # dependencies have dependencies. Third-party wheels usually arrive
 # self-contained (@loader_path already), so this mostly rides guard for the
-# interpreter's own modules.
+# interpreter's own modules. dSYM debug bundles (some wheels ship them,
+# e.g. PyObjC) hold Mach-O DWARF files install_name_tool cannot process —
+# they are debug artifacts, never loaded at runtime, so skip them.
 chmod -R u+w "$RESOURCES"
 REWRITE_LOG="$STAGE_ROOT/rewritten.txt"
 while :; do
   new_copies=0
   for f in $(find "$RES_LIB" -type f; \
              find "$DYNLOAD" "$SITE_PKGS" -type f \
-               \( -name '*.so' -o -name '*.dylib' \) 2>/dev/null); do
+               \( -name '*.so' -o -name '*.dylib' \) ! -path '*.dSYM/*' 2>/dev/null); do
     otool -L "$f" >/dev/null 2>&1 || continue
     for dep in $(otool -L "$f" | tail -n +2 | awk '{print $1}'); do
       case "$dep" in @*|/System/*|/usr/lib/*) continue ;; esac
       base="$(basename "$dep")"
       if [ ! -f "$RES_LIB/$base" ]; then
+        # Some wheels (e.g. scikit-learn) ship private dylibs inside their own
+        # tree but reference them by absolute build-machine paths (/DLC/...),
+        # which exist nowhere else. Resolve the file by basename from the
+        # staged bundle instead of trusting the literal path.
+        if [ ! -e "$dep" ]; then
+          dep="$(find "$RESOURCES" -type f -name "$base" ! -path '*.dSYM/*' 2>/dev/null | head -1)"
+        fi
         cp "$dep" "$RES_LIB/$base"
         chmod u+w "$RES_LIB/$base"
         new_copies=1

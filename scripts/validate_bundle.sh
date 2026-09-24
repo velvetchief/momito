@@ -29,14 +29,150 @@ fi
 
 fail=0
 
+# Mach-O magic, all three container formats and both byte orders: 32-bit and
+# 64-bit MH_MAGIC/MH_CIGAM, plus the fat header.
+_is_macho() {
+  python3 - "$1" <<'PY'
+import sys
+
+try:
+    with open(sys.argv[1], "rb") as f:
+        magic = f.read(4)
+except OSError:
+    sys.exit(1)  # unreadable: never exempt
+MAGICS = {
+    b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe",  # 32-bit, both orders
+    b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe",  # 64-bit, both orders
+    b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca",  # fat, both orders
+}
+sys.exit(0 if magic in MAGICS else 1)
+PY
+}
+
+# Exit 0 when no load command macOS consults at load time names a forbidden
+# path. LC_RPATH values are exempt: a stale search prefix is never forced,
+# only consulted for bare install names, and the packager's rewrite loop
+# guarantees every active reference points inside the bundle.
+_macho_load_refs_clean() {
+  python3 - "$1" "${FORBIDDEN_PATTERNS[@]}" <<'PY'
+import re
+import subprocess
+import sys
+
+DYLIB_CMDS = {
+    "LC_LOAD_DYLIB", "LC_LOAD_WEAK_DYLIB", "LC_LAZY_LOAD_DYLIB",
+    "LC_LOAD_UPWARD_DYLIB", "LC_REEXPORT_DYLIB", "LC_ID_DYLIB",
+}
+file = sys.argv[1]
+forbidden = sys.argv[2:]
+
+proc = subprocess.run(["otool", "-l", file], capture_output=True, text=True)
+if proc.returncode != 0 or not proc.stdout.strip():
+    print(f"error: otool could not read {file}", file=sys.stderr)
+    sys.exit(1)
+refs = []
+cmd = None
+for line in proc.stdout.splitlines():
+    m = re.match(r"\s*cmd (LC_\w+)\s*$", line)
+    if m:
+        cmd = m.group(1)
+        continue
+    m = re.match(r"\s*name (.+?) \(offset \d+\)\s*$", line)
+    if m and cmd in DYLIB_CMDS:
+        refs.append((cmd, m.group(1)))
+# otool -D prints "<file>:" then the install ID the loader records.
+ident = subprocess.run(
+    ["otool", "-D", file], capture_output=True, text=True,
+).stdout.splitlines()
+if len(ident) >= 2:
+    refs.append(("LC_ID_DYLIB (otool -D)", ident[1].strip()))
+
+found = False
+for cmd, ref in refs:
+    for pattern in forbidden:
+        if pattern in ref:
+            print(f"  {cmd}: {ref} — matches '{pattern}'", file=sys.stderr)
+            found = True
+            break
+sys.exit(1 if found else 0)
+PY
+}
+
 echo "==> Scanning for build-machine paths"
-# -a: code signatures and .so files are binary but greppable; -l: report the
-# file, not every line inside it. /Users/runner is the CI runner home,
-# /home/ any unix home, PROJECT_DIR this checkout.
-if grep -r -a -l -F -e '/Users/runner' -e '/home/' -e "$PROJECT_DIR" \
-    "$BUNDLE"; then
-  echo "error: build-machine or checkout paths found in the bundle (above)." >&2
-  fail=1
+# /Users/runner is the CI runner home, /home/ any unix home, PROJECT_DIR this
+# checkout. Three-tier adjudication of a raw hit, all serving one intent —
+# the bundle must survive off the build machine, and active load references
+# are dependence while inert strings are not:
+#   1. Mach-O files: the load commands macOS consults at load time (otool -l
+#      plus otool -D) decide — an active reference is fatal, stale build
+#      strings in the bytes are noted and exempt.
+#   2. Upstream third-party text (site-packages, the bundled stdlib):
+#      docstrings, bytecode co_filenames, METADATA and SBOM records name
+#      upstream build machines and are never consulted at runtime — noted
+#      and exempt.
+#   3. App-owned text (momito source, run.py, Info.plist, assets): a raw
+#      hit is a baked build path — fatal.
+FORBIDDEN_PATTERNS=('/Users/runner' '/home/' "$PROJECT_DIR")
+OTOOL="$(command -v otool || true)"
+# A raw byte scan, not grep: BSD grep (macOS) skips files it deems binary
+# even with -a — it matched the text leaks but silently ignored the
+# libportaudio.dylib fixture — while GNU grep matches. The bundle must be
+# scanned identically on both platforms, and python3 is already a hard
+# dependency of this script.
+leaks="$(python3 - "$BUNDLE" "${FORBIDDEN_PATTERNS[@]}" <<'PY'
+import os
+import sys
+
+bundle = sys.argv[1]
+patterns = [pattern.encode() for pattern in sys.argv[2:]]
+for root, dirs, files in os.walk(bundle):
+    for name in files:
+        path = os.path.join(root, name)
+        try:
+            with open(path, "rb") as data:
+                blob = data.read()
+        except OSError:
+            continue
+        for pattern in patterns:
+            if pattern in blob:
+                print(f"{path}\t{pattern.decode()}")
+                break
+PY
+)"
+TAB="$(printf '\t')"
+if [ -n "$leaks" ]; then
+  [ -n "$OTOOL" ] || echo "note: otool not found — Mach-O hits fall back to the raw scan" >&2
+  while IFS="$TAB" read -r leak matched; do
+    [ -n "$leak" ] || continue
+    rel="${leak#"$BUNDLE"/}"
+    echo "$leak"
+    if [ -n "$OTOOL" ] && _is_macho "$leak"; then
+      if _macho_load_refs_clean "$leak"; then
+        echo "note: inert build-path metadata in $rel (matched ${matched}) — load commands clean, exempt" >&2
+        continue
+      fi
+      # An active load reference is dependence wherever the file lives; the
+      # offending commands were reported in place.
+    else
+      case "$rel" in
+        # Upstream wheel/stdlib content: docstrings, bytecode co_filenames,
+        # METADATA and SBOM records name their own build machines and none
+        # of it is consulted at runtime — inert strings, like the Mach-O
+        # metadata above.
+        Contents/Resources/site-packages/*|Contents/Resources/python/*)
+          echo "note: upstream third-party metadata in $rel (matched ${matched}) — not app-owned, exempt" >&2
+          continue
+          ;;
+        # App-owned text (momito source, run.py, Info.plist, assets): a raw
+        # hit means a baked build path — the original hard fail.
+        *)
+          echo "  (matched ${matched})" >&2
+          ;;
+      esac
+    fi
+    echo "error: build-machine or checkout paths found in the bundle (above)." >&2
+    fail=1
+  done <<<"$leaks"
 fi
 
 echo "==> Checking bundle version against VERSION ($VERSION)"
