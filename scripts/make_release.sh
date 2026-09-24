@@ -161,6 +161,13 @@ while :; do
       case "$dep" in @*|/System/*|/usr/lib/*) continue ;; esac
       base="$(basename "$dep")"
       if [ ! -f "$RES_LIB/$base" ]; then
+        # Some wheels (e.g. scikit-learn) ship private dylibs inside their own
+        # tree but reference them by absolute build-machine paths (/DLC/...),
+        # which exist nowhere else. Resolve the file by basename from the
+        # staged bundle instead of trusting the literal path.
+        if [ ! -e "$dep" ]; then
+          dep="$(find "$RESOURCES" -type f -name "$base" ! -path '*.dSYM/*' 2>/dev/null | head -1)"
+        fi
         cp "$dep" "$RES_LIB/$base"
         chmod u+w "$RES_LIB/$base"
         new_copies=1
