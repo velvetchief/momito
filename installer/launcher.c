@@ -25,7 +25,9 @@
  *   MOMITO_PACKAGED=1 in the process environment so the Python side
  *   (momito/paths.py) resolves its assets from the bundle too.
  */
+#ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
+#endif
 #include <dlfcn.h>
 #include <limits.h>
 #include <stdio.h>
@@ -62,102 +64,25 @@ static char g_run_py[2 * PATH_MAX];    /* the bundled run.py */
 static char g_log[2 * PATH_MAX];       /* ~/Library/Logs/Momito/momito.log */
 
 /*
- * Absolutize a CFBundle-provided URL and extract its filesystem path.
- * Consumes url. Returns 0 on success.
- *
- * CFBundle hands back CFURLs that may be relative — the path string of a
- * relative CFURL is only its relative part (macOS CI observed
- * "Contents/Resources"). CFURLCopyAbsoluteURL folds in the URL's own base,
- * but when that base is lost it falls back to the process cwd, which has
- * nothing to do with the bundle, so callers verify existence before trusting
- * what comes out.
- */
-static int path_from_url(CFURLRef url, char *out, size_t outlen) {
-    int rc = 1;
-    if (url) {
-        CFURLRef abs_url = CFURLCopyAbsoluteURL(url);
-        CFRelease(url);
-        if (abs_url) {
-            CFStringRef path =
-                CFURLCopyFileSystemPath(abs_url, kCFURLPOSIXPathStyle);
-            if (path) {
-                if (CFStringGetCString(path, out, (long)outlen,
-                                       kCFStringEncodingUTF8))
-                    rc = 0;
-                CFRelease(path);
-            }
-            CFRelease(abs_url);
-        }
-    }
-    return rc;
-}
-
-/*
  * Locate the Contents/Resources directory of the bundle this executable
- * belongs to, as an absolute path. CFBundleCopyResourcesDirectoryURL is the
- * supported answer; the argv[0] walk covers everything the bundle API does
- * not see, e.g. running the bare binary without LaunchServices. Whichever
- * branch answers, the result must exist on disk — a base-less relative
- * bundle URL resolved against the process cwd is what sent dlopen after a
- * nonexistent path in macOS CI, so existence referees every answer here.
+ * belongs to, as an absolute path.
+ *
+ * argv[0] walk only, deliberately: every macOS surface that launches this
+ * bundle — direct exec, Finder via LaunchServices, Login Items — passes the
+ * full executable path in argv[0], and a pure POSIX walk (realpath-normalized,
+ * cwd-independent) is deterministic and unit-testable on any platform, which
+ * the CFBundle API is not. (Two CI rounds of relative-URL surprises from
+ * CFBundleCopyResourcesDirectoryURL — a relative path resolved against the
+ * process cwd — are what argued for dropping it.) The packaging spec lists
+ * the argv[0] walk as the approved alternative.
  */
 static int resolve_resources(const char *argv0) {
-    char candidate[2 * PATH_MAX];
-    char exec_dir[2 * PATH_MAX];
-    int have = 0;
-
-    /* The executable's own directory, pinned absolute. Anchors the argv[0]
-       walk and gives a base-less bundle URL a real location to resolve
-       against. */
-    exec_dir[0] = '\0';
     const char *last_slash = argv0 ? strrchr(argv0, '/') : NULL;
-    if (last_slash == argv0) {
-        snprintf(exec_dir, sizeof exec_dir, "/");
-    } else if (last_slash) {
-        char probe[2 * PATH_MAX];
-        snprintf(probe, sizeof probe, "%.*s", (int)(last_slash - argv0),
-                 argv0);
-        if (!realpath(probe, exec_dir)) exec_dir[0] = '\0';
-    }
-
-    CFBundleRef bundle = CFBundleGetMainBundle();
-    if (bundle) {
-        CFURLRef res_url = CFBundleCopyResourcesDirectoryURL(bundle);
-        if (res_url &&
-            path_from_url(res_url, candidate, sizeof candidate) == 0)
-            have = 1;
-    }
-    /* A surviving relative path is base-less — CFURLCopyAbsoluteURL already
-       folded any real base in. Resolve it against the executable's bundle
-       root, never the process cwd. */
-    if (have && candidate[0] != '/') {
-        if (exec_dir[0]) {
-            char joined[2 * PATH_MAX];
-            char resolved[2 * PATH_MAX];
-            snprintf(joined, sizeof joined, "%s/../../%s", exec_dir,
-                     candidate);
-            if (realpath(joined, resolved))
-                memcpy(candidate, resolved, sizeof resolved);
-            else
-                have = 0;
-        } else {
-            have = 0;
-        }
-    }
-    /* Existence referee for the bundle-API answer. */
-    if (have) {
-        struct stat st;
-        if (stat(candidate, &st) != 0 || !S_ISDIR(st.st_mode)) have = 0;
-    }
-    if (!have && exec_dir[0]) {
-        /* argv[0] ends in .../Contents/MacOS/<name>; the Resources directory
-           is its parent's parent. exec_dir is already absolute. */
-        char probe[2 * PATH_MAX];
-        snprintf(probe, sizeof probe, "%s/../Resources", exec_dir);
-        if (realpath(probe, candidate)) have = 1;
-    }
-    if (!have) return 1;
-    return realpath(candidate, g_resources) ? 0 : 1;
+    if (!last_slash) return 1;
+    char probe[2 * PATH_MAX];
+    snprintf(probe, sizeof probe, "%.*s/../Resources",
+             (int)(last_slash - argv0), argv0);
+    return realpath(probe, g_resources) ? 0 : 1;
 }
 
 static void ensure_log_dir(const char *home) {
@@ -203,6 +128,7 @@ static int fail(const char *detail) {
 #endif
     fprintf(stderr, "%s\n", body);
 
+#ifdef __APPLE__
     if (getenv("MOMITO_LAUNCHER_NO_ALERT")) return 1;
     CFStringRef message =
         CFStringCreateWithCString(NULL, body, kCFStringEncodingUTF8);
@@ -210,6 +136,7 @@ static int fail(const char *detail) {
                                    NULL, NULL, CFSTR("Momito can't start"),
                                    message, CFSTR("OK"), NULL, NULL, NULL);
     if (message) CFRelease(message);
+#endif
     return 1;
 }
 
