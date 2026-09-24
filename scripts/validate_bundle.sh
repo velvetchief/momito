@@ -79,19 +79,22 @@ for line in proc.stdout.splitlines():
         continue
     m = re.match(r"\s*name (.+?) \(offset \d+\)\s*$", line)
     if m and cmd in DYLIB_CMDS:
-        refs.append(m.group(1))
+        refs.append((cmd, m.group(1)))
 # otool -D prints "<file>:" then the install ID the loader records.
 ident = subprocess.run(
     ["otool", "-D", file], capture_output=True, text=True,
 ).stdout.splitlines()
 if len(ident) >= 2:
-    refs.append(ident[1].strip())
+    refs.append(("LC_ID_DYLIB (otool -D)", ident[1].strip()))
 
-bad = [ref for ref in refs if any(path in ref for path in forbidden)]
-if bad:
-    for ref in bad:
-        print(f"error: active load reference to {ref}", file=sys.stderr)
-    sys.exit(1)
+found = False
+for cmd, ref in refs:
+    for pattern in forbidden:
+        if pattern in ref:
+            print(f"  {cmd}: {ref} — matches '{pattern}'", file=sys.stderr)
+            found = True
+            break
+sys.exit(1 if found else 0)
 PY
 }
 
@@ -106,18 +109,46 @@ echo "==> Scanning for build-machine paths"
 # otool -D): an active reference is fatal, inert metadata is noted and
 # exempt. Active load references are dependence; strings are not.
 FORBIDDEN_PATTERNS=('/Users/runner' '/home/' "$PROJECT_DIR")
-FORBIDDEN_FLAGS=()
-for pattern in "${FORBIDDEN_PATTERNS[@]}"; do FORBIDDEN_FLAGS+=(-e "$pattern"); done
 OTOOL="$(command -v otool || true)"
-leaks="$(grep -r -a -l -F "${FORBIDDEN_FLAGS[@]}" "$BUNDLE" || true)"
+# A raw byte scan, not grep: BSD grep (macOS) skips files it deems binary
+# even with -a — it matched the text leaks but silently ignored the
+# libportaudio.dylib fixture — while GNU grep matches. The bundle must be
+# scanned identically on both platforms, and python3 is already a hard
+# dependency of this script.
+leaks="$(python3 - "$BUNDLE" "${FORBIDDEN_PATTERNS[@]}" <<'PY'
+import os
+import sys
+
+bundle = sys.argv[1]
+patterns = [pattern.encode() for pattern in sys.argv[2:]]
+for root, dirs, files in os.walk(bundle):
+    for name in files:
+        path = os.path.join(root, name)
+        try:
+            with open(path, "rb") as data:
+                blob = data.read()
+        except OSError:
+            continue
+        for pattern in patterns:
+            if pattern in blob:
+                print(f"{path}\t{pattern.decode()}")
+                break
+PY
+)"
+TAB="$(printf '\t')"
 if [ -n "$leaks" ]; then
   [ -n "$OTOOL" ] || echo "note: otool not found — Mach-O hits fall back to the raw scan" >&2
-  while IFS= read -r leak; do
+  while IFS="$TAB" read -r leak matched; do
     [ -n "$leak" ] || continue
     echo "$leak"
-    if [ -n "$OTOOL" ] && _is_macho "$leak" && _macho_load_refs_clean "$leak"; then
-      echo "note: inert build-path metadata in ${leak#"$BUNDLE"/} — load commands clean, exempt" >&2
-      continue
+    if [ -n "$OTOOL" ] && _is_macho "$leak"; then
+      if _macho_load_refs_clean "$leak"; then
+        echo "note: inert build-path metadata in ${leak#"$BUNDLE"/} (matched ${matched}) — load commands clean, exempt" >&2
+        continue
+      fi
+      # The offending load commands were reported in place; nothing to add.
+    else
+      echo "  (matched ${matched})" >&2
     fi
     echo "error: build-machine or checkout paths found in the bundle (above)." >&2
     fail=1
