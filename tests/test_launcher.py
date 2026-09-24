@@ -74,9 +74,17 @@ def _run_packaged(binary: Path, home: Path) -> subprocess.CompletedProcess[bytes
         "HOME": str(home),
         "MOMITO_LAUNCHER_NO_ALERT": "1",
     }
-    return subprocess.run(
+    result = subprocess.run(
         [str(binary)], env=env, cwd=str(home), timeout=60,
     )
+    if result.returncode != 0:
+        # The launcher redirects stdout/stderr into the log; dump it on
+        # failure or the CI output has nothing to diagnose with.
+        log = home / "Library" / "Logs" / "Momito" / "momito.log"
+        if log.exists():
+            print(f"--- launcher log ({log}) ---", file=sys.stderr)
+            print(log.read_text(errors="replace"), file=sys.stderr)
+    return result
 
 
 def _packaged_log(home: Path) -> Path:
@@ -104,6 +112,7 @@ def test_packaged_missing_runtime_says_redownload(tmp_path: Path) -> None:
     advice (cd into the checkout) makes no sense there."""
     app = _build_packaged(tmp_path)
     resources = app / "Contents" / "Resources"
+    resources.mkdir(parents=True)
     (resources / "run.py").write_text("print('momito ran')\n")
 
     assert _run_packaged(app / "Contents" / "MacOS" / "Momito", tmp_path).returncode == 1
@@ -161,6 +170,15 @@ def test_packaged_launcher_runs_the_bundle_script(tmp_path: Path) -> None:
     runtime = resources / "python" / "lib"
     runtime.mkdir(parents=True)
     shutil.copy(dylib, runtime / "libpython3.14.dylib")
+    # The launcher pins PYTHONHOME to Resources/python when it exists, so the
+    # fake bundle must carry a real stdlib at the layout make_release.sh
+    # ships: python/lib/pythonX.Y/ (lib-dynload included), or Python init
+    # dies with nothing on the filesystem to import from.
+    stdlib = sysconfig.get_paths()["stdlib"]
+    shutil.copytree(
+        stdlib, runtime / f"python{sys.version_info.major}.{sys.version_info.minor}",
+        ignore=shutil.ignore_patterns("__pycache__", "test", "site-packages"),
+    )
 
     binary = app / "Contents" / "MacOS" / "Momito"
     assert _run_packaged(binary, tmp_path).returncode == 0
