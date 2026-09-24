@@ -7,6 +7,7 @@ without touching /Applications.
 """
 
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -235,9 +236,14 @@ def _fake_bundle(tmp_path: Path, version: str) -> Path:
     return app
 
 
-def _validate(bundle: Path) -> subprocess.CompletedProcess[bytes]:
+def _validate(
+    bundle: Path, fake_bin: Path | None = None,
+) -> subprocess.CompletedProcess[bytes]:
+    env = None
+    if fake_bin is not None:
+        env = {**os.environ, "PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}"}
     return subprocess.run(
-        ["bash", str(VALIDATE), str(bundle)], capture_output=True, timeout=60,
+        ["bash", str(VALIDATE), str(bundle)], capture_output=True, timeout=60, env=env,
     )
 
 
@@ -272,3 +278,79 @@ def test_validation_rejects_version_drift(tmp_path: Path) -> None:
     assert result.returncode != 0
     assert "Info.plist says 9.9.9" in result.stderr.decode()
     assert "VERSION says" in result.stderr.decode()
+
+
+OTOOL_LOAD_TEMPLATE = (
+    "           cmd LC_LOAD_DYLIB\n"
+    "       cmdsize 72\n"
+    "              name {load_ref} (offset 24)\n"
+    "           cmd LC_RPATH\n"
+    "       cmdsize 40\n"
+    "              path /Users/runner/work/portaudio/build (offset 12)\n"
+)
+
+
+def _fake_dylib(path: Path, metadata: str) -> Path:
+    """Mach-O magic (the leading bytes of a real arm64/x86_64 binary) plus
+    inert build-machine metadata, like a wheel-built portaudio binary."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"\xcf\xfa\xed\xfe" + metadata.encode())
+    return path
+
+
+def _fake_otool(tmp_path: Path, load_ref: str, install_id: str) -> Path:
+    """An otool reporting canned load commands and install IDs for any file,
+    so the validator's Mach-O pass runs hermetically on any OS."""
+    bin_dir = tmp_path / "fakebin"
+    bin_dir.mkdir(exist_ok=True)
+    otool = bin_dir / "otool"
+    otool.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "-l" ]; then\n'
+        "cat <<'LOAD'\n" + OTOOL_LOAD_TEMPLATE.format(load_ref=load_ref) + "LOAD\n"
+        'elif [ "$1" = "-D" ]; then\n'
+        "printf '%s:\\n%s\\n' \"$2\" " + shlex.quote(install_id) + "\n"
+        "fi\n"
+    )
+    otool.chmod(0o755)
+    return bin_dir
+
+
+def test_validation_exempts_inert_metadata_in_macho_binaries(tmp_path: Path) -> None:
+    """A wheel binary built on a CI runner keeps stale build strings that
+    nothing consults at load time. The raw scan flags them; the load-command
+    pass clears them — and a stale LC_RPATH is exempt with them."""
+    bundle = _fake_bundle(tmp_path, (ROOT / "VERSION").read_text().strip())
+    dylib = _fake_dylib(
+        bundle / "Contents/Resources/site-packages/_sounddevice_data"
+        / "portaudio-binaries/libportaudio.dylib",
+        "build dir was /Users/runner/work/portaudio\n",
+    )
+    fake_bin = _fake_otool(
+        tmp_path, "@loader_path/../CoreAudio", "@rpath/libportaudio.dylib",
+    )
+    result = _validate(bundle, fake_bin)
+    assert result.returncode == 0, result.stderr
+    assert "inert build-path metadata" in result.stderr.decode()
+
+
+def test_validation_rejects_active_macho_load_references(tmp_path: Path) -> None:
+    """When a Mach-O file's load commands still name a build path, the binary
+    genuinely depends on a machine no user has — hard fail, like text leaks."""
+    bundle = _fake_bundle(tmp_path, (ROOT / "VERSION").read_text().strip())
+    # The string lives in the binary's own bytes (string table), as it does in
+    # any real offender — the raw grep must flag the file so the load-command
+    # pass adjudicates it.
+    _fake_dylib(
+        bundle / "Contents/Resources/site-packages/_sounddevice_data"
+        / "portaudio-binaries/libportaudio.dylib",
+        "/Users/runner/work/portaudio/out/libportaudio.dylib\n",
+    )
+    fake_bin = _fake_otool(
+        tmp_path,
+        "/Users/runner/work/portaudio/out/libCoreAudio.dylib",
+        "/Users/runner/work/portaudio/out/libportaudio.dylib",
+    )
+    result = _validate(bundle, fake_bin)
+    assert result.returncode != 0
+    assert "build-machine or checkout paths" in result.stderr.decode()

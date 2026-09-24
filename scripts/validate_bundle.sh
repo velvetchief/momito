@@ -29,14 +29,99 @@ fi
 
 fail=0
 
+# Mach-O magic, all three container formats and both byte orders: 32-bit and
+# 64-bit MH_MAGIC/MH_CIGAM, plus the fat header.
+_is_macho() {
+  python3 - "$1" <<'PY'
+import sys
+
+try:
+    with open(sys.argv[1], "rb") as f:
+        magic = f.read(4)
+except OSError:
+    sys.exit(1)  # unreadable: never exempt
+MAGICS = {
+    b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe",  # 32-bit, both orders
+    b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe",  # 64-bit, both orders
+    b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca",  # fat, both orders
+}
+sys.exit(0 if magic in MAGICS else 1)
+PY
+}
+
+# Exit 0 when no load command macOS consults at load time names a forbidden
+# path. LC_RPATH values are exempt: a stale search prefix is never forced,
+# only consulted for bare install names, and the packager's rewrite loop
+# guarantees every active reference points inside the bundle.
+_macho_load_refs_clean() {
+  python3 - "$1" "${FORBIDDEN_PATTERNS[@]}" <<'PY'
+import re
+import subprocess
+import sys
+
+DYLIB_CMDS = {
+    "LC_LOAD_DYLIB", "LC_LOAD_WEAK_DYLIB", "LC_LAZY_LOAD_DYLIB",
+    "LC_LOAD_UPWARD_DYLIB", "LC_REEXPORT_DYLIB", "LC_ID_DYLIB",
+}
+file = sys.argv[1]
+forbidden = sys.argv[2:]
+
+proc = subprocess.run(["otool", "-l", file], capture_output=True, text=True)
+if proc.returncode != 0 or not proc.stdout.strip():
+    print(f"error: otool could not read {file}", file=sys.stderr)
+    sys.exit(1)
+refs = []
+cmd = None
+for line in proc.stdout.splitlines():
+    m = re.match(r"\s*cmd (LC_\w+)\s*$", line)
+    if m:
+        cmd = m.group(1)
+        continue
+    m = re.match(r"\s*name (.+?) \(offset \d+\)\s*$", line)
+    if m and cmd in DYLIB_CMDS:
+        refs.append(m.group(1))
+# otool -D prints "<file>:" then the install ID the loader records.
+ident = subprocess.run(
+    ["otool", "-D", file], capture_output=True, text=True,
+).stdout.splitlines()
+if len(ident) >= 2:
+    refs.append(ident[1].strip())
+
+bad = [ref for ref in refs if any(path in ref for path in forbidden)]
+if bad:
+    for ref in bad:
+        print(f"error: active load reference to {ref}", file=sys.stderr)
+    sys.exit(1)
+PY
+}
+
 echo "==> Scanning for build-machine paths"
-# -a: code signatures and .so files are binary but greppable; -l: report the
-# file, not every line inside it. /Users/runner is the CI runner home,
-# /home/ any unix home, PROJECT_DIR this checkout.
-if grep -r -a -l -F -e '/Users/runner' -e '/home/' -e "$PROJECT_DIR" \
-    "$BUNDLE"; then
-  echo "error: build-machine or checkout paths found in the bundle (above)." >&2
-  fail=1
+# /Users/runner is the CI runner home, /home/ any unix home, PROJECT_DIR this
+# checkout. Text files leak a baked path the moment anything reads it, so a
+# raw hit there stays a hard fail. Wheel-built Mach-O binaries legitimately
+# carry stale build strings, though — the PortAudio binary in the sounddevice
+# wheel was built on a GitHub Actions runner and still names /Users/runner in
+# its debug strings — so a hit inside a Mach-O file is adjudicated against
+# the load commands macOS actually consults at load time (otool -l plus
+# otool -D): an active reference is fatal, inert metadata is noted and
+# exempt. Active load references are dependence; strings are not.
+FORBIDDEN_PATTERNS=('/Users/runner' '/home/' "$PROJECT_DIR")
+FORBIDDEN_FLAGS=()
+for pattern in "${FORBIDDEN_PATTERNS[@]}"; do FORBIDDEN_FLAGS+=(-e "$pattern"); done
+OTOOL="$(command -v otool || true)"
+leaks="$(grep -r -a -l -F "${FORBIDDEN_FLAGS[@]}" "$BUNDLE" || true)"
+if [ -n "$leaks" ]; then
+  [ -n "$OTOOL" ] || echo "note: otool not found — Mach-O hits fall back to the raw scan" >&2
+  while IFS= read -r leak; do
+    [ -n "$leak" ] || continue
+    echo "$leak"
+    if [ -n "$OTOOL" ] && _is_macho "$leak" && _macho_load_refs_clean "$leak"; then
+      echo "note: inert build-path metadata in ${leak#"$BUNDLE"/} — load commands clean, exempt" >&2
+      continue
+    fi
+    echo "error: build-machine or checkout paths found in the bundle (above)." >&2
+    fail=1
+  done <<<"$leaks"
 fi
 
 echo "==> Checking bundle version against VERSION ($VERSION)"
