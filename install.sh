@@ -110,8 +110,12 @@ if [ ! -e "$PY_DYLIB" ]; then
   echo "       run ./install.sh again." >&2
   exit 1
 fi
+PY_VERSION="$("$VENV/bin/python" -c 'import sysconfig; print(sysconfig.get_python_version())')"
 cc -O2 -o "$STAGE/Contents/MacOS/Momito" "$PROJECT_DIR/installer/launcher.c" \
+  -framework CoreFoundation \
   -DPYTHON_DYLIB="\"$PY_DYLIB\"" \
+  -DPY_VERSION="\"$PY_VERSION\"" \
+  -DPROJECT_DIR="\"$PROJECT_DIR\"" \
   -DRUN_PY="\"$PROJECT_DIR/run.py\"" \
   -DLOG_PATH="\"$PROJECT_DIR/logs/momito.log\""
 
