@@ -68,6 +68,9 @@ static char g_log[2 * PATH_MAX];       /* ~/Library/Logs/Momito/momito.log */
  * the bare binary without LaunchServices.
  */
 static int resolve_resources(const char *argv0) {
+    char candidate[2 * PATH_MAX];
+    int have = 0;
+
     CFBundleRef bundle = CFBundleGetMainBundle();
     if (bundle) {
         CFURLRef res_url = CFBundleCopyResourcesDirectoryURL(bundle);
@@ -75,25 +78,29 @@ static int resolve_resources(const char *argv0) {
             CFStringRef res_path =
                 CFURLCopyFileSystemPath(res_url, kCFURLPOSIXPathStyle);
             if (res_path) {
-                int ok = CFStringGetCString(res_path, g_resources,
-                                            sizeof g_resources,
-                                            kCFStringEncodingUTF8);
+                have = CFStringGetCString(res_path, candidate,
+                                          sizeof candidate,
+                                          kCFStringEncodingUTF8);
                 CFRelease(res_path);
-                CFRelease(res_url);
-                if (ok) return 0;
-            } else {
-                CFRelease(res_url);
             }
+            CFRelease(res_url);
         }
     }
-    /* argv[0] ends in .../Contents/MacOS/<name>; the Resources directory is
-       its parent's parent. argv[0] may be relative — realpath normalizes. */
-    const char *last_slash = argv0 ? strrchr(argv0, '/') : NULL;
-    if (!last_slash) return 1;
-    char probe[2 * PATH_MAX];
-    snprintf(probe, sizeof probe, "%.*s/../Resources",
-             (int)(last_slash - argv0), argv0);
-    return realpath(probe, g_resources) ? 0 : 1;
+    if (!have) {
+        /* argv[0] ends in .../Contents/MacOS/<name>; the Resources directory
+           is its parent's parent. argv[0] may be relative — realpath
+           normalizes. */
+        const char *last_slash = argv0 ? strrchr(argv0, '/') : NULL;
+        if (!last_slash) return 1;
+        snprintf(candidate, sizeof candidate, "%.*s/../Resources",
+                 (int)(last_slash - argv0), argv0);
+    }
+    /* CFBundleCopyResourcesDirectoryURL can return a path relative to the
+       process's working directory (observed when the binary is exec'd with a
+       tmp cwd), and every consumer below — dlopen, run.py, PYTHONHOME —
+       needs an absolute, cwd-independent path. One realpath covers both
+       branches. */
+    return realpath(candidate, g_resources) ? 0 : 1;
 }
 
 static void ensure_log_dir(const char *home) {
