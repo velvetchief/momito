@@ -10,6 +10,18 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="$PROJECT_DIR/.venv"
 BUNDLE_ID="com.momito.Momito"
 
+# VERSION is the single version source: the plist here and the release
+# packager (scripts/make_release.sh) both stamp from it.
+if [ ! -f "$PROJECT_DIR/VERSION" ]; then
+  echo "error: VERSION is missing from the checkout; cannot stamp the app." >&2
+  exit 1
+fi
+VERSION="$(tr -d '[:space:]' < "$PROJECT_DIR/VERSION")"
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "error: VERSION must read like 1.2.3, got '$VERSION'." >&2
+  exit 1
+fi
+
 echo "==> Checking this Mac"
 if [ "$(uname -s)" != "Darwin" ]; then
   echo "error: Momito is macOS only." >&2
@@ -71,24 +83,10 @@ STAGE="$STAGE_ROOT/Momito.app"
 mkdir -p "$STAGE/Contents/MacOS" "$STAGE/Contents/Resources"
 cp "$PROJECT_DIR/assets/Momito.icns" "$STAGE/Contents/Resources/Momito.icns"
 
-cat > "$STAGE/Contents/Info.plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleName</key><string>Momito</string>
-  <key>CFBundleDisplayName</key><string>Momito</string>
-  <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
-  <key>CFBundleExecutable</key><string>Momito</string>
-  <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.0.1</string>
-  <key>CFBundleIconFile</key><string>Momito</string>
-  <key>LSUIElement</key><true/>
-  <key>NSMicrophoneUsageDescription</key>
-  <string>Momito records while you hold Right Option so it can transcribe your dictation locally.</string>
-</dict>
-</plist>
-PLIST
+# The plist is shared with the release packager so the mic usage string and
+# every other bundle attribute stay in sync across both builders.
+sed -e "s/@BUNDLE_ID@/$BUNDLE_ID/g" -e "s/@VERSION@/$VERSION/g" \
+  "$PROJECT_DIR/installer/Info.plist.in" > "$STAGE/Contents/Info.plist"
 
 mkdir -p "$PROJECT_DIR/logs"
 
