@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Momito — Hold Right Option. Speak.</title>
+  <meta name="description" content="Free, open-source dictation for Apple silicon Macs. Audio and transcripts never leave your Mac — the one-time ~2.3 GB model download is the only network request Momito ever makes.">
+  <link rel="canonical" href="https://velvetchief.github.io/momito/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Momito">
+  <meta property="og:title" content="Momito — Hold Right Option. Speak.">
+  <meta property="og:description" content="Free, open-source dictation for Apple silicon Macs. Audio and transcripts never leave your Mac — the one-time ~2.3 GB model download is the only network request Momito ever makes.">
+  <meta property="og:url" content="https://velvetchief.github.io/momito/">
+  <meta property="og:image" content="https://velvetchief.github.io/momito/assets/social-preview.png">
+  <meta name="theme-color" content="#0f1114">
+
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="alternate icon" type="image/png" href="assets/icon-1024.png">
+  <link rel="apple-touch-icon" href="assets/icon-1024.png">
+
+  <style>
+    :root {
+      --bg: #0f1114;
+      --card: #14171c;
+      --border: #262b33;
+      --border-soft: #1d222a;
+      --text: #e9e7e2;
+      --muted: #a2a9b3;
+      --faint: #7d848e;
+      --accent: #f07f3c;
+      --accent-soft: #ffb35c;
+      --btn-text: #221307;
+      --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection { background: rgba(240, 127, 60, 0.35); }
+
+    a { color: var(--accent-soft); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    :focus-visible { outline: 2px solid var(--accent-soft); outline-offset: 3px; border-radius: 4px; }
+
+    img { max-width: 100%; }
+
+    /* Keycap chips: Right Option, Esc */
+    kbd {
+      font-family: var(--mono);
+      font-size: 0.72em;
+      font-weight: 500;
+      color: var(--text);
+      background: #1b2027;
+      border: 1px solid #3a414b;
+      border-bottom-width: 3px;
+      border-radius: 8px;
+      padding: 0.15em 0.5em;
+      vertical-align: 0.08em;
+      white-space: nowrap;
+    }
+
+    .wrap { max-width: 56rem; margin: 0 auto; padding: 0 1.5rem; }
+
+    /* ---- header ---- */
+    header.top {
+      border-bottom: 1px solid var(--border-soft);
+    }
+    header.top .wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      color: var(--text);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .brand:hover { text-decoration: none; color: var(--accent-soft); }
+    .brand img { width: 22px; height: 22px; display: block; }
+    .nav-link { color: var(--muted); font-size: 0.95rem; }
+    .nav-link:hover { color: var(--text); }
+
+    /* ---- hero ---- */
+    .hero {
+      text-align: center;
+      padding: 5.5rem 0 4.5rem;
+      background:
+        radial-gradient(38rem 18rem at 50% -2rem, rgba(240, 127, 60, 0.13), transparent 70%);
+    }
+    .hero .app-icon {
+      width: 92px;
+      height: 92px;
+      filter: drop-shadow(0 10px 28px rgba(240, 127, 60, 0.28));
+      margin-bottom: 1.6rem;
+    }
+    .hero h1 {
+      font-size: 2.9rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+    .lede {
+      max-width: 40rem;
+      margin: 1.1rem auto 2rem;
+      color: var(--muted);
+      font-size: 1.15rem;
+    }
+    .download {
+      display: inline-block;
+      background: linear-gradient(180deg, var(--accent-soft), var(--accent));
+      color: var(--btn-text);
+      font-size: 1.05rem;
+      font-weight: 600;
+      padding: 0.8rem 1.7rem;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(240, 127, 60, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+    .download:hover { filter: brightness(1.06); text-decoration: none; }
+    .reqs {
+      margin-top: 1rem;
+      color: var(--faint);
+      font-size: 0.9rem;
+      letter-spacing: 0.02em;
+    }
+
+    /* ---- sections ---- */
+    section { padding: 3.25rem 0; }
+    section + section { border-top: 1px solid var(--border-soft); }
+
+    h2 {
+      font-size: 1.55rem;
+      font-weight: 650;
+      letter-spacing: -0.015em;
+      margin-bottom: 1rem;
+    }
+    section p { color: var(--muted); max-width: 44rem; }
+    section p + p { margin-top: 0.75rem; }
+    section p strong { color: var(--text); font-weight: 600; }
+
+    /* ---- how it works ---- */
+    .cards {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .cards li {
+      background: var(--card);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 1.1rem 1.2rem;
+    }
+    .cards h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.35rem; }
+    .cards p { font-size: 0.95rem; max-width: none; }
+
+    /* ---- install steps ---- */
+    ol.steps { list-style: none; margin-top: 1.5rem; counter-reset: step; max-width: 44rem; }
+    ol.steps li {
+      counter-increment: step;
+      position: relative;
+      padding: 0 0 1.25rem 3.1rem;
+      color: var(--muted);
+    }
+    ol.steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1.7rem;
+      height: 1.7rem;
+      border-radius: 50%;
+      background: rgba(240, 127, 60, 0.14);
+      border: 1px solid rgba(240, 127, 60, 0.4);
+      color: var(--accent-soft);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    ol.steps li:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 0.9rem;
+      top: 2.1rem;
+      bottom: 0.15rem;
+      width: 1px;
+      background: var(--border);
+    }
+    ol.steps li strong { color: var(--text); font-weight: 600; }
+    ol.steps .why { color: var(--faint); font-size: 0.92rem; }
+
+    /* ---- updating callout ---- */
+    .callout {
+      background: var(--card);
+      border: 1px solid var(--border-soft);
+      border-left: 3px solid var(--accent);
+      border-radius: 12px;
+      padding: 1.1rem 1.3rem;
+      max-width: 44rem;
+      color: var(--muted);
+    }
+    .callout strong { color: var(--text); font-weight: 600; }
+
+    /* ---- footer ---- */
+    footer {
+      border-top: 1px solid var(--border-soft);
+      margin-top: 3.5rem;
+      padding: 2.2rem 0 3rem;
+      color: var(--faint);
+      font-size: 0.9rem;
+    }
+    footer .cols {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem 3rem;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    footer ul { list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem 1.6rem; }
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--accent-soft); }
+    footer .fine { margin-top: 1.4rem; font-size: 0.85rem; }
+
+    /* ---- small screens ---- */
+    @media (max-width: 640px) {
+      .hero { padding: 4rem 0 3.5rem; }
+      .hero .app-icon { width: 76px; height: 76px; }
+      .hero h1 { font-size: 2.1rem; }
+      .lede { font-size: 1.05rem; }
+      h2 { font-size: 1.3rem; }
+      section { padding: 2.5rem 0; }
+      .cards { grid-template-columns: 1fr; }
+      footer .cols { flex-direction: column; gap: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="https://github.com/velvetchief/momito">
+        <img src="assets/icon.svg" alt="" width="22" height="22" onerror="this.onerror=null;this.src='assets/icon-1024.png'">
+        Momito
+      </a>
+      <a class="nav-link" href="https://github.com/velvetchief/momito">GitHub</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap">
+        <img class="app-icon" src="assets/icon.svg" alt="Momito icon — a schnauzer's face on a warm orange squircle" width="92" height="92" onerror="this.onerror=null;this.src='assets/icon-1024.png'">
+        <h1 id="hero-title">Hold <kbd>Right Option</kbd>. Speak.</h1>
+        <p class="lede">Momito is free, open-source dictation for Apple silicon Macs: hold Right&nbsp;Option, speak, and your words are typed into the focused app.</p>
+        <a class="download" href="https://github.com/velvetchief/momito/releases/latest">Download Momito</a>
+        <p class="reqs">Apple silicon&nbsp;&nbsp;·&nbsp;&nbsp;macOS 14+&nbsp;&nbsp;·&nbsp;&nbsp;free</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="privacy-title">
+      <div class="wrap">
+        <h2 id="privacy-title">Audio and transcripts never leave your Mac.</h2>
+        <p><strong>The one-time ~2.3&nbsp;GB model download is the only network request Momito ever makes.</strong> Transcription runs on Apple silicon via MLX, in memory, under your login — there is no cloud component, no account, and no way to send a recording anywhere.</p>
+        <p>Your history is stored locally in your home folder with owner-only permissions, and the dashboard is served to this machine only (loopback, 127.0.0.1) behind a per-launch token.</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="how-title">
+      <div class="wrap">
+        <h2 id="how-title">How it works</h2>
+        <ul class="cards">
+          <li>
+            <h3>Hold to talk</h3>
+            <p>Hold <kbd>Right Option</kbd>, say something, release. The transcript is typed into whatever app has focus, with punctuation and capitalization handled by the model.</p>
+          </li>
+          <li>
+            <h3>Esc discards</h3>
+            <p>Press <kbd>Esc</kbd> while still holding to throw the recording away: nothing is transcribed, nothing is pasted.</p>
+          </li>
+          <li>
+            <h3>Paste last transcription</h3>
+            <p>The menu keeps the last thing it typed and can put it back on the clipboard and into the focused field, for when your click landed in the wrong window.</p>
+          </li>
+          <li>
+            <h3>Menubar state</h3>
+            <p>A small schnauzer lives in the menu bar with a badge for what it is doing right now: loading, ready, listening, transcribing.</p>
+          </li>
+          <li>
+            <h3>Local dashboard</h3>
+            <p>History, stats, and replacements — spoken-form to written-form dictionary rules — in a native window, served only to your machine.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section aria-labelledby="install-title">
+      <div class="wrap">
+        <h2 id="install-title">Install</h2>
+        <ol class="steps">
+          <li><strong>Download the DMG</strong> from the <a href="https://github.com/velvetchief/momito/releases/latest">latest release</a>.</li>
+          <li><strong>Drag Momito to Applications.</strong></li>
+          <li><strong>First open: right-click the app and choose Open.</strong> <span class="why">The app is unsigned, so macOS shows a one-time confirmation before it runs.</span></li>
+          <li><strong>Grant Accessibility.</strong> <span class="why">System Settings → Privacy &amp; Security → Accessibility → enable Momito. Momito notices the moment you flip the switch.</span></li>
+          <li><strong>Speak.</strong> <span class="why">The model downloads once (~2.3&nbsp;GB) and is then cached on your Mac — that download is the only network request Momito ever makes.</span></li>
+          <li><strong>Microphone:</strong> <span class="why">macOS prompts on your first dictation. Grant once.</span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section aria-labelledby="update-title">
+      <div class="wrap">
+        <h2 id="update-title">Updating</h2>
+        <div class="callout">
+          <p><strong>New version → re-grant Accessibility.</strong> Unsigned builds change the cdhash that macOS binds permissions to, so a new version asks for Accessibility once. Grant it, and you are back to holding Right&nbsp;Option.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="cols">
+        <p>Momito — hold Right Option. Speak.</p>
+        <ul>
+          <li><a href="https://github.com/velvetchief/momito/blob/main/LICENSE">Source (Apache-2.0)</a></li>
+          <li><a href="https://github.com/velvetchief/momito/blob/main/NOTICE">Parakeet TDT 0.6B v2 — CC-BY-4.0, NVIDIA</a></li>
+          <li><a href="https://github.com/velvetchief/momito">GitHub</a></li>
+        </ul>
+      </div>
+      <p class="fine">© 2026 Prithvi Datla. Speech recognition model attribution per the repo <a href="https://github.com/velvetchief/momito/blob/main/NOTICE">NOTICE</a>.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
