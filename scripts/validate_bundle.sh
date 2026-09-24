@@ -100,14 +100,18 @@ PY
 
 echo "==> Scanning for build-machine paths"
 # /Users/runner is the CI runner home, /home/ any unix home, PROJECT_DIR this
-# checkout. Text files leak a baked path the moment anything reads it, so a
-# raw hit there stays a hard fail. Wheel-built Mach-O binaries legitimately
-# carry stale build strings, though — the PortAudio binary in the sounddevice
-# wheel was built on a GitHub Actions runner and still names /Users/runner in
-# its debug strings — so a hit inside a Mach-O file is adjudicated against
-# the load commands macOS actually consults at load time (otool -l plus
-# otool -D): an active reference is fatal, inert metadata is noted and
-# exempt. Active load references are dependence; strings are not.
+# checkout. Three-tier adjudication of a raw hit, all serving one intent —
+# the bundle must survive off the build machine, and active load references
+# are dependence while inert strings are not:
+#   1. Mach-O files: the load commands macOS consults at load time (otool -l
+#      plus otool -D) decide — an active reference is fatal, stale build
+#      strings in the bytes are noted and exempt.
+#   2. Upstream third-party text (site-packages, the bundled stdlib):
+#      docstrings, bytecode co_filenames, METADATA and SBOM records name
+#      upstream build machines and are never consulted at runtime — noted
+#      and exempt.
+#   3. App-owned text (momito source, run.py, Info.plist, assets): a raw
+#      hit is a baked build path — fatal.
 FORBIDDEN_PATTERNS=('/Users/runner' '/home/' "$PROJECT_DIR")
 OTOOL="$(command -v otool || true)"
 # A raw byte scan, not grep: BSD grep (macOS) skips files it deems binary
@@ -140,15 +144,31 @@ if [ -n "$leaks" ]; then
   [ -n "$OTOOL" ] || echo "note: otool not found — Mach-O hits fall back to the raw scan" >&2
   while IFS="$TAB" read -r leak matched; do
     [ -n "$leak" ] || continue
+    rel="${leak#"$BUNDLE"/}"
     echo "$leak"
     if [ -n "$OTOOL" ] && _is_macho "$leak"; then
       if _macho_load_refs_clean "$leak"; then
-        echo "note: inert build-path metadata in ${leak#"$BUNDLE"/} (matched ${matched}) — load commands clean, exempt" >&2
+        echo "note: inert build-path metadata in $rel (matched ${matched}) — load commands clean, exempt" >&2
         continue
       fi
-      # The offending load commands were reported in place; nothing to add.
+      # An active load reference is dependence wherever the file lives; the
+      # offending commands were reported in place.
     else
-      echo "  (matched ${matched})" >&2
+      case "$rel" in
+        # Upstream wheel/stdlib content: docstrings, bytecode co_filenames,
+        # METADATA and SBOM records name their own build machines and none
+        # of it is consulted at runtime — inert strings, like the Mach-O
+        # metadata above.
+        Contents/Resources/site-packages/*|Contents/Resources/python/*)
+          echo "note: upstream third-party metadata in $rel (matched ${matched}) — not app-owned, exempt" >&2
+          continue
+          ;;
+        # App-owned text (momito source, run.py, Info.plist, assets): a raw
+        # hit means a baked build path — the original hard fail.
+        *)
+          echo "  (matched ${matched})" >&2
+          ;;
+      esac
     fi
     echo "error: build-machine or checkout paths found in the bundle (above)." >&2
     fail=1

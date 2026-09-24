@@ -354,3 +354,18 @@ def test_validation_rejects_active_macho_load_references(tmp_path: Path) -> None
     result = _validate(bundle, fake_bin)
     assert result.returncode != 0
     assert "build-machine or checkout paths" in result.stderr.decode()
+
+
+def test_validation_exempts_upstream_third_party_text(tmp_path: Path) -> None:
+    """Upstream wheel content — docstrings, bytecode co_filenames, METADATA,
+    SBOM records — ships strings naming its own build machines (numpy's
+    _datasource.py docstring, huggingface_hub's METADATA). Nothing consults
+    them at runtime, so a raw hit under site-packages is noted and exempt.
+    App-owned text still fails: see test_validation_rejects_baked_absolute_paths."""
+    bundle = _fake_bundle(tmp_path, (ROOT / "VERSION").read_text().strip())
+    upstream = bundle / "Contents/Resources/site-packages/numpy/lib/_datasource.py"
+    upstream.parent.mkdir(parents=True, exist_ok=True)
+    upstream.write_text("EXAMPLE = 'save to /home/guido/data'\n")
+    result = _validate(bundle)
+    assert result.returncode == 0, result.stderr
+    assert "upstream third-party metadata" in result.stderr.decode()
