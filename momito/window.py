@@ -7,7 +7,6 @@ idle, and the schnauzer icon for dev runs from a plain terminal python, which
 would otherwise surface as Python.app.
 """
 
-from pathlib import Path
 from typing import Any, Optional
 
 import AppKit
@@ -15,7 +14,10 @@ import Foundation
 import WebKit
 import objc
 
-ICON_PNG = Path(__file__).parent.parent / "assets" / "icon-1024.png"
+from .paths import assets_dir
+
+# (repo root in dev, Contents/Resources when packaged — see momito.paths)
+ICON_PNG = assets_dir() / "icon-1024.png"
 
 WINDOW_BG = AppKit.NSColor.colorWithSRGBRed_green_blue_alpha_(0x1B / 255, 0x15 / 255, 0x12 / 255, 1.0)
 

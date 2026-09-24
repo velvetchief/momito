@@ -3,7 +3,6 @@
 import atexit
 import queue
 import threading
-from pathlib import Path
 from typing import Any, Optional, Tuple
 
 import numpy as np
@@ -22,6 +21,7 @@ from .dictation import Dictation
 from .history import History
 from .overlay import RecordingOverlay
 from .paste import paste_text
+from .paths import assets_dir
 from .recorder import SAMPLE_RATE, Recorder
 from .server import TOKEN_HEADER, DashboardServer
 from .state import AppState
@@ -30,7 +30,8 @@ from .window import DashboardWindow, setup_app_identity
 PTT_KEY = keyboard.Key.alt_r
 
 # monochrome schnauzer template icon; the title only carries transient state
-ASSETS = Path(__file__).parent.parent / "assets"
+# (repo root in dev, Contents/Resources when packaged — see momito.paths)
+ASSETS = assets_dir()
 MENUBAR_ICON = ASSETS / "menubar-template.png"
 TITLES = {
     state_mod.LOADING: "⏳",
