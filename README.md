@@ -5,7 +5,8 @@
 Hold **Right Option** anywhere on your Mac, talk, release. Your words get typed
 into whatever app has focus, like Wispr Flow or FluidVoice, except everything
 runs on your own machine. Transcription is NVIDIA Parakeet TDT v2 running
-locally on Apple silicon via MLX: free, offline, nothing leaves the Mac.
+locally on Apple silicon via MLX: free and private. The model downloads once
+(about 2.3 GB); from then on it works offline, and nothing leaves the Mac.
 
 Momito lives in the menu bar as a small schnauzer, with a badge for what it is
 doing right now:
@@ -59,19 +60,48 @@ the schnauzer icon) only while the dashboard window is open.
 
 - A Mac with Apple silicon (M1 or later). MLX runs on the Apple GPU, so Intel
   Macs are out.
-- macOS 13 or later and the Xcode Command Line Tools
-  (`xcode-select --install`) for the compiled launcher.
-- Python 3.11 or later, installed as a shared library, which the Homebrew and
-  python.org builds both are. Momito is developed and tested on 3.14; earlier
-  versions should work but are not exercised in CI.
-- About 2.3 GB of disk for the model, downloaded once on first launch, and
-  another 700 MB or so for the Python packages.
+- macOS 14 or later.
+- About 2.3 GB of disk for the model, downloaded once on first launch.
 
-## Install (once)
+Building from source needs more: Python 3.11 or later, installed as a shared
+library (the Homebrew and python.org builds both are), the Xcode Command Line
+Tools (`xcode-select --install`) for the compiled launcher, and another
+700 MB or so for the Python packages. Momito is developed and tested on
+Python 3.14; earlier versions should work but are not exercised in CI.
 
-Momito installs from source. There is no signed disk image, because notarizing
-a Mac app means paying Apple $99 a year, and this is a free tool. That is the
-only reason: the build itself is a two-line script.
+## Install
+
+Download the DMG from the
+[latest release](https://github.com/velvetchief/momito/releases/latest), open
+it, and drag **Momito** to Applications.
+
+The build is distributed unsigned — notarizing a Mac app means paying Apple
+$99 a year, and this is a free tool — so the first open takes one extra step:
+right-click **Momito** in Applications, choose **Open**, then **Open** again.
+macOS only asks this once per version.
+
+Then grant macOS permissions, one-time, to "Momito":
+
+1. **Accessibility**: System Settings > Privacy & Security > Accessibility >
+   enable Momito. Needed for both the global hotkey and the paste keystroke.
+   Momito notices the moment you flip the switch, so you should not have to
+   restart it.
+2. **Microphone**: macOS asks on your first dictation.
+
+The first dictation also downloads the transcription model, about 2.3 GB, one
+time. After that, Momito is fully offline: audio and transcripts never leave
+the Mac.
+
+### Updating
+
+Download the new DMG and replace the app in Applications. Because the build is
+unsigned, every version has a different code signature, and macOS ties
+permission grants to the signature: right-click → **Open** once on the new
+version, and re-enable Momito in the Accessibility list. Your dictation
+history is stored locally under `~/Library/Application Support/Momito/` and
+survives the swap.
+
+### From source
 
 ```bash
 git clone https://github.com/velvetchief/momito.git
@@ -80,21 +110,10 @@ cd momito
 ```
 
 That sets up the Python environment and puts **Momito.app** in /Applications.
-Add `--login` to also start Momito automatically when you log in.
-
-Momito.app is a thin launcher that runs the code in this folder, so keep the
-folder where it is (rerun `./install.sh` if you move it). The launcher is a
-tiny native binary rather than a shell script so macOS sees the app as Momito,
-not Python: schnauzer icon in the Dock, "Momito" in the menu bar, and
+Add `--login` to also start Momito automatically when you log in. The launcher
+is a tiny native binary rather than a shell script so macOS sees the app as
+Momito, not Python: schnauzer icon in the Dock, "Momito" in the menu bar, and
 permissions that attach to Momito by name.
-
-macOS permissions, one-time, granted to "Momito":
-
-1. **Microphone**: macOS asks on your first dictation.
-2. **Accessibility**: System Settings > Privacy & Security > Accessibility >
-   enable Momito. Needed for both the global hotkey and the paste keystroke.
-   Momito notices the moment you flip the switch, so you should not have to
-   restart it.
 
 Permission grants are tied to the app's code signature. Reinstalling only
 replaces the installed app when the build actually changed, and when it does,
@@ -142,7 +161,7 @@ python3 -m venv .venv-dev
 .venv-dev/bin/python -m mypy momito tests conftest.py run.py
 ```
 
-100 tests. The same two commands run on every push and pull request, on an
+106 tests. The same two commands run on every push and pull request, on an
 Apple silicon runner, via `.github/workflows/tests.yml`.
 
 Covered: the dictation pipeline (min-length gate, whitespace, paste rules,
