@@ -125,7 +125,10 @@ jobs:
         run: |
           # Not --deep: re-sign every Mach-O explicitly (the packager already
           # ad-hoc re-signed the dylibs it rewrote), then the bundle itself.
+          # dSYM debug bundles hold Mach-O DWARF files that are never loaded
+          # at runtime — skip them.
           find dist/Momito.app -type f \( -name '*.dylib' -o -name '*.so' \) \
+            ! -path '*.dSYM/*' \
             -exec codesign --force --options runtime --timestamp \
                             --keychain "$KEYCHAIN" \
                             --sign "Developer ID Application" {} +
