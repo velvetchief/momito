@@ -51,6 +51,7 @@ def _build(tmp_path: Path, dylib: str, run_py: Path) -> tuple[Path, Path]:
 def _build_packaged(tmp_path: Path) -> Path:
     """Packaged mode: the flags make_release.sh bakes, into a fake bundle."""
     app = tmp_path / "Momito.app"
+    (app / "Contents" / "MacOS").mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [
             "cc", "-O2", "-o", str(app / "Contents" / "MacOS" / "Momito"),
