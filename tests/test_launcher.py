@@ -20,13 +20,18 @@ SOURCE = ROOT / "installer" / "launcher.c"
 VALIDATE = ROOT / "scripts" / "validate_bundle.sh"
 
 pytestmark = [
-    pytest.mark.skipif(sys.platform != "darwin", reason="needs macOS (CoreFoundation)"),
     pytest.mark.skipif(shutil.which("cc") is None, reason="needs a C compiler"),
 ]
 
 
 def _c_string(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _framework_flag() -> list[str]:
+    """The launcher links CoreFoundation only on Apple platforms (the alert
+    dialog); POSIX builds compile without it, so these tests run everywhere."""
+    return ["-framework", "CoreFoundation"] if sys.platform == "darwin" else []
 
 
 def _build(tmp_path: Path, dylib: str, run_py: Path) -> tuple[Path, Path]:
@@ -36,7 +41,7 @@ def _build(tmp_path: Path, dylib: str, run_py: Path) -> tuple[Path, Path]:
     subprocess.run(
         [
             "cc", "-O2", "-o", str(binary), str(SOURCE),
-            "-framework", "CoreFoundation",
+            *_framework_flag(),
             f"-DPYTHON_DYLIB={_c_string(dylib)}",
             f"-DPY_VERSION={_c_string('3.14')}",
             f"-DPROJECT_DIR={_c_string(str(tmp_path))}",
@@ -48,6 +53,15 @@ def _build(tmp_path: Path, dylib: str, run_py: Path) -> tuple[Path, Path]:
     return binary, log
 
 
+def _runtime_lib_name() -> str:
+    """The shared libpython of the RUNNING interpreter, under the layout
+    make_release.sh ships (Resources/python/lib/)."""
+    suffix = "dylib" if sys.platform == "darwin" else "so"
+    return (
+        f"libpython{sys.version_info.major}.{sys.version_info.minor}.{suffix}"
+    )
+
+
 def _build_packaged(tmp_path: Path) -> Path:
     """Packaged mode: the flags make_release.sh bakes, into a fake bundle."""
     app = tmp_path / "Momito.app"
@@ -56,9 +70,9 @@ def _build_packaged(tmp_path: Path) -> Path:
         [
             "cc", "-O2", "-o", str(app / "Contents" / "MacOS" / "Momito"),
             str(SOURCE),
-            "-framework", "CoreFoundation",
+            *_framework_flag(),
             "-DMOMITO_PACKAGED",
-            f"-DPYTHON_DYLIB_RELPATH={_c_string('python/lib/libpython3.14.dylib')}",
+            f"-DPYTHON_DYLIB_RELPATH={_c_string('python/lib/' + _runtime_lib_name())}",
             f"-DPY_VERSION={_c_string('3.14')}",
         ],
         check=True,
@@ -169,7 +183,17 @@ def test_packaged_launcher_runs_the_bundle_script(tmp_path: Path) -> None:
     )
     runtime = resources / "python" / "lib"
     runtime.mkdir(parents=True)
-    shutil.copy(dylib, runtime / "libpython3.14.dylib")
+    lib_name = _runtime_lib_name()
+    shutil.copy(dylib, runtime / lib_name)
+    if sys.platform == "darwin":
+        # The packager re-signs every dylib it modifies (make_release.sh does
+        # install_name_tool then codesign --force --sign -); a framework
+        # dylib copied verbatim is refused by dlopen with "code signature
+        # invalid". The fixture must mirror that signing step.
+        subprocess.run(
+            ["codesign", "--force", "--sign", "-", str(runtime / lib_name)],
+            check=True,
+        )
     # The launcher pins PYTHONHOME to Resources/python when it exists, so the
     # fake bundle must carry a real stdlib at the layout make_release.sh
     # ships: python/lib/pythonX.Y/ (lib-dynload included), or Python init
