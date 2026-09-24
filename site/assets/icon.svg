@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFB35C"/>
+      <stop offset="1" stop-color="#F07F3C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- macOS squircle background -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+
+  <g transform="translate(0,28)">
+  <!-- ears: natural fold, dark slate -->
+  <polygon points="352,352 300,168 462,296" fill="#5D646E"/>
+  <polygon points="672,352 724,168 562,296" fill="#5D646E"/>
+  <polygon points="360,336 330,222 436,306" fill="#454B54"/>
+  <polygon points="664,336 694,222 588,306" fill="#454B54"/>
+
+  <!-- head: slate gray -->
+  <rect x="330" y="292" width="364" height="348" rx="96" fill="#8E96A0"/>
+
+  <!-- bushy eyebrows -->
+  <rect x="366" y="378" width="118" height="48" rx="24" fill="#EFEDE8" transform="rotate(-9 425 402)"/>
+  <rect x="540" y="378" width="118" height="48" rx="24" fill="#EFEDE8" transform="rotate(9 599 402)"/>
+
+  <!-- eyes -->
+  <circle cx="428" cy="466" r="27" fill="#282C31"/>
+  <circle cx="596" cy="466" r="27" fill="#282C31"/>
+  <circle cx="437" cy="457" r="8" fill="#FFFFFF"/>
+  <circle cx="605" cy="457" r="8" fill="#FFFFFF"/>
+
+  <!-- beard: light silver, drops below the chin with a fringe -->
+  <path d="M 366 486
+           C 340 560 336 630 356 682
+           L 396 716 L 428 690 L 458 726 L 492 696 L 512 736
+           L 532 696 L 566 726 L 596 690 L 628 716 L 668 682
+           C 688 630 684 560 658 486
+           C 616 458 560 446 512 446
+           C 464 446 408 458 366 486 Z"
+        fill="#EFEDE8"/>
+
+  <!-- mustache part lines -->
+  <path d="M 512 560 C 500 610 468 646 432 664" stroke="#D8D4CC" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <path d="M 512 560 C 524 610 556 646 592 664" stroke="#D8D4CC" stroke-width="14" stroke-linecap="round" fill="none"/>
+
+  <!-- nose -->
+  <ellipse cx="512" cy="516" rx="46" ry="34" fill="#282C31"/>
+  <ellipse cx="498" cy="506" rx="12" ry="8" fill="#4A5058"/>
+  </g>
+</svg>
