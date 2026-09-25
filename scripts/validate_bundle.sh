@@ -3,13 +3,16 @@
 #
 #   scripts/validate_bundle.sh path/to/Momito.app
 #
-# Two checks, from the launch spec:
+# Three checks, from the launch spec:
 # 1. No build-machine or checkout paths anywhere in the bundle — a hit means
 #    the app would break on a Mac that never had this checkout.
 # 2. Info.plist CFBundleShortVersionString equals the repo's VERSION file —
 #    the whole point of single-sourcing the version.
+# 3. The icon Info.plist declares via CFBundleIconFile exists at
+#    Contents/Resources/<name>.icns — a missing file makes macOS show the
+#    generic icon (the v1.1.0 DMG shipped exactly that way).
 #
-# Exit 0 only when both pass. Needs python3 (any 3.x) for the plist read.
+# Exit 0 only when all three pass. Needs python3 (any 3.x) for the plist read.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -190,6 +193,26 @@ except Exception as exc:
 ' "$BUNDLE/Contents/Info.plist")"
 if [ "$PLIST_VERSION" != "$VERSION" ]; then
   echo "error: Info.plist says $PLIST_VERSION, VERSION says $VERSION." >&2
+  fail=1
+fi
+
+echo "==> Checking the app icon (CFBundleIconFile)"
+ICON_NAME="$(python3 -c '
+import plistlib, sys
+try:
+    with open(sys.argv[1], "rb") as f:
+        info = plistlib.load(f)
+except Exception as exc:
+    sys.exit(f"error: cannot read CFBundleIconFile from {sys.argv[1]}: {exc}")
+name = info.get("CFBundleIconFile")
+if name is None:
+    sys.exit(0)  # no icon declared: nothing to enforce here
+if not isinstance(name, str) or not name:
+    sys.exit(f"error: CFBundleIconFile in {sys.argv[1]} is not a usable name: {name!r}")
+print(name)
+' "$BUNDLE/Contents/Info.plist")"
+if [ -n "$ICON_NAME" ] && [ ! -f "$BUNDLE/Contents/Resources/$ICON_NAME.icns" ]; then
+  echo "error: Info.plist declares CFBundleIconFile=$ICON_NAME, but $ICON_NAME.icns is missing from Contents/Resources — Finder shows the generic icon." >&2
   fail=1
 fi
 

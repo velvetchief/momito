@@ -220,6 +220,7 @@ PLIST_TEMPLATE = (
     '<?xml version="1.0" encoding="UTF-8"?>\n'
     '<plist version="1.0">\n<dict>\n'
     "  <key>CFBundleShortVersionString</key><string>{version}</string>\n"
+    "  <key>CFBundleIconFile</key><string>Momito</string>\n"
     "</dict>\n</plist>\n"
 )
 
@@ -233,6 +234,7 @@ def _fake_bundle(tmp_path: Path, version: str) -> Path:
     (contents / "Info.plist").write_text(PLIST_TEMPLATE.format(version=version))
     (contents / "MacOS" / "Momito").write_text("stub launcher\n")
     (contents / "Resources" / "run.py").write_text("print('ok')\n")
+    (contents / "Resources" / "Momito.icns").write_text("stub icns\n")
     return app
 
 
@@ -278,6 +280,29 @@ def test_validation_rejects_version_drift(tmp_path: Path) -> None:
     assert result.returncode != 0
     assert "Info.plist says 9.9.9" in result.stderr.decode()
     assert "VERSION says" in result.stderr.decode()
+
+
+def test_validation_rejects_missing_app_icon(tmp_path: Path) -> None:
+    """The v1.1.0 regression: the plist declares CFBundleIconFile=Momito, but
+    the release packager staged assets only under Resources/assets/, so no
+    Resources/Momito.icns existed and macOS showed the generic icon. Icon
+    presence is now an invariant the build enforces, not a one-off fix."""
+    bundle = _fake_bundle(tmp_path, (ROOT / "VERSION").read_text().strip())
+    (bundle / "Contents" / "Resources" / "Momito.icns").unlink()
+    result = _validate(bundle)
+    assert result.returncode != 0
+    assert "CFBundleIconFile=Momito" in result.stderr.decode()
+    assert "Momito.icns is missing" in result.stderr.decode()
+
+
+def test_validation_accepts_declared_icon_at_resources_root(tmp_path: Path) -> None:
+    """The happy path install.sh always had: the icon the plist declares sits
+    at the Resources root, and the icon check reports a pass rather than
+    silently not running."""
+    bundle = _fake_bundle(tmp_path, (ROOT / "VERSION").read_text().strip())
+    result = _validate(bundle)
+    assert result.returncode == 0, result.stderr
+    assert "Checking the app icon" in result.stdout.decode()
 
 
 OTOOL_LOAD_TEMPLATE = (

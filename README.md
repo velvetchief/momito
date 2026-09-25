@@ -161,7 +161,7 @@ python3 -m venv .venv-dev
 .venv-dev/bin/python -m mypy momito tests conftest.py run.py
 ```
 
-106 tests. The same two commands run on every push and pull request, on an
+108 tests. The same two commands run on every push and pull request, on an
 Apple silicon runner, via `.github/workflows/tests.yml`.
 
 Covered: the dictation pipeline (min-length gate, whitespace, paste rules,
