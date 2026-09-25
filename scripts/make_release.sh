@@ -17,6 +17,7 @@
 #             /Contents/Resources/run.py                  entry script
 #             /Contents/Resources/momito/                 app source
 #             /Contents/Resources/assets/                 icons, cue sounds
+#             /Contents/Resources/Momito.icns             the icon CFBundleIconFile names
 #             /Contents/Resources/site-packages/          pip install --target
 #             /Contents/Resources/python/lib/             libpython + deps
 #             /Contents/Resources/python/lib/pythonX.Y/   the stdlib
@@ -81,6 +82,10 @@ sed -e "s/@BUNDLE_ID@/$BUNDLE_ID/g" -e "s/@VERSION@/$VERSION/g" \
 echo "==> Copying app source and assets"
 ditto "$PROJECT_DIR/momito" "$RESOURCES/momito"
 ditto "$PROJECT_DIR/assets" "$RESOURCES/assets"
+# CFBundleIconFile (installer/Info.plist.in) resolves at the Resources root,
+# not Resources/assets — the copy install.sh has always made; missing it gave
+# the v1.1.0 DMG the generic icon.
+cp -p "$PROJECT_DIR/assets/Momito.icns" "$RESOURCES/Momito.icns"
 cp -p "$PROJECT_DIR/run.py" "$RESOURCES/run.py"
 find "$RESOURCES" -name __pycache__ -type d -prune -exec rm -rf {} +
 
