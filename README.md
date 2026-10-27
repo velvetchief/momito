@@ -76,7 +76,11 @@ Download the DMG from the
 it, and drag **Momito** to Applications.
 
 The build is distributed unsigned — notarizing a Mac app means paying Apple
-$99 a year, and this is a free tool — so the first open takes one extra step:
+$99 a year, and this is a free tool — so the first open takes one extra step.
+On macOS 15 or later: double-click **Momito** in Applications, click **Done**
+when macOS says it could not verify the app — not **Move to Trash** — then
+open System Settings > Privacy & Security, click **Open Anyway**, then
+**Open**, authenticating if asked. On macOS 14 Sonoma and earlier,
 right-click **Momito** in Applications, choose **Open**, then **Open** again.
 macOS only asks this once per version.
 
@@ -96,10 +100,11 @@ the Mac.
 
 Download the new DMG and replace the app in Applications. Because the build is
 unsigned, every version has a different code signature, and macOS ties
-permission grants to the signature: right-click → **Open** once on the new
-version, and re-enable Momito in the Accessibility list. Your dictation
-history is stored locally under `~/Library/Application Support/Momito/` and
-survives the swap.
+permission grants to the signature: the first open of a new version repeats
+the first-open approval above (on macOS 14 Sonoma and earlier,
+right-click → **Open**), and you re-enable Momito in the Accessibility list.
+Your dictation history is stored locally under
+`~/Library/Application Support/Momito/` and survives the swap.
 
 ### From source
 
